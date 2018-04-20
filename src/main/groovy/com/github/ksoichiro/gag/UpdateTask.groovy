@@ -96,16 +96,19 @@ class UpdateTask extends DefaultTask {
         println "Appending upload command to build.gradle..."
         def libraryBuildGradle = project.file("${project.git.directory}/${repo.name}/${repo.libraryProject}/build.gradle")
         println libraryBuildGradle.path
-        def relativeRepoPath = "../../.repo"
+        def relativeRepoPath = repo.libraryProject == "." ? "../.repo":"../../.repo"
         def version = repo.commit == null ? repo.tag : repo.commit
         libraryBuildGradle.append("""
 apply plugin: 'maven'
-
+android {
+    publishNonDefault false
+}
 uploadArchives {
     repositories {
         mavenDeployer {
             repository(url: uri('${relativeRepoPath}'))
             pom.groupId = "${repo.groupId}"
+            pom.artifactId = "${repo.artifactId}"
             pom.version = "${version}"
         }
     }
@@ -152,7 +155,15 @@ task wrapper(type: Wrapper) {
         }
 
         println "Assembling and uploading library ${repo.name}..."
-        def gradleCommand = [
+        def gradleCommand = 
+	repo.libraryProject == '.'? [
+                "${gradle}".toString(),
+                ":clean".toString(),
+                ":assemble".toString(),
+                ":uploadArchives".toString()
+		]
+		:
+	[
                 "${gradle}".toString(),
                 ":${repo.libraryProject}:clean".toString(),
                 ":${repo.libraryProject}:assemble".toString(),
@@ -170,7 +181,7 @@ task wrapper(type: Wrapper) {
                 .directory(wd)
         def env = pb.environment()
         env["PATH"] = System.getenv("PATH")
-        env["GIT_SSH"] = System.getenv("GIT_SSH")
+        //env["GIT_SSH"] = System.getenv("GIT_SSH")
         def proc = pb.start()
 
         // Avoid I/O blocking
